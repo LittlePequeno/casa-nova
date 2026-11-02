@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Casa Nova</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="style.css">
+<script src="config.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="demo" id="demo" hidden>MODO TESTE · Supabase não configurado · reservas ficam só neste navegador</div>
+
+  <header>
+    <div class="tag">Chá de casa nova</div>
+    <h1 id="casal"></h1>
+    <p class="intro" id="mensagem"></p>
+    <div class="how">
+      <div><b>1. Escolhe</b><p>Itens com link vão direto pra loja.</p></div>
+      <div><b>2. Reserva</b><p>Coloca seu nome pra marcar como reservado.</p></div>
+      <div><b>3. Entrega</b><p>No checkout, usa o endereço lá embaixo.</p></div>
+    </div>
+  </header>
+
+  <main id="rooms" class="rooms"><p class="muted">Carregando lista…</p></main>
+  <p class="erro" id="erro" hidden></p>
+
+  <section class="pix">
+    <h2>Prefere Pix?</h2>
+    <p>Qualquer valor ajuda. Vai direto pra gente, sem taxa de plataforma.</p>
+    <div class="key"><code id="pixkey"></code><button class="btn" id="copy" type="button">Copiar chave</button></div>
+  </section>
+
+  <div class="addr">Endereço de entrega<br><span id="endereco"></span></div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
