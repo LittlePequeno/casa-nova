@@ -1,45 +1,40 @@
 # Casa Nova
 
-Lista de presentes de casa nova. Site estático (GitHub Pages) + Supabase pras reservas. Custo zero.
+Lista de presentes de casa nova. Site estático (GitHub Pages) + Supabase pras reservas + Google Apps Script pros emails. Custo zero.
 
 ## Estrutura
 
 ```
-index.html        estrutura da página
-style.css         visual
-app.js            lógica (render, reserva, cancelamento)
-config.js         <- só edita isso: itens, Pix, endereço, chaves do Supabase
-supabase/schema.sql   banco: tabela, view pública e funções
+index.html             página principal
+confirmar.html         página que abre pelo botão do email
+style.css              visual
+app.js                 lógica (lista, reserva, cancelamento)
+config.js              <- só edita isso: textos, itens (foto, frase), Pix, endereço
+img/casal.jpg          foto de vocês
+supabase/schema.sql    banco (1ª vez)
+supabase/02_emails.sql banco: email, status e links de confirmação
+apps-script/Codigo.gs  rotina diária de emails (roda na sua conta Google)
 ```
 
-Sem `supabaseUrl` no `config.js` a página roda em modo teste (reserva só no navegador).
+## Fluxo da reserva
 
-## Como funciona a reserva
+1. Convidado clica em "Eu dou esse", coloca nome e email (o navegador lembra pra próxima) e pode marcar "Já comprei".
+2. Reserva pendente há 5 dias: sai um email do seu Gmail perguntando se comprou, com botão pra cada item.
+3. O botão abre `confirmar.html`, onde a pessoa escolhe "Já comprei" ou "Desisti". Só o clique na página age, então antivírus de email não confirma nada sozinho.
+4. Sem resposta em 3 dias: vocês recebem um aviso com nome e email.
+5. Mais 1 dia sem resposta: o item volta pra lista e vocês recebem o resumo.
 
-- Visitante não acessa a tabela direto. Lê só a coluna `item_id` da tabela (sem nomes nem tokens).
-- Reserva via função `reservar()`. `item_id` é chave primária, então dois reservando o mesmo item ao mesmo tempo: só um ganha.
-- Quem reserva recebe um token salvo no navegador. Só com ele dá pra cancelar (`cancelar()`).
-- Vocês veem os nomes no painel do Supabase: Table Editor > `reservas`. Pra liberar um item, apaga a linha lá.
+## Segurança
 
-## Subir
+- O site só lê a coluna `item_id`. Nomes, emails e tokens ficam no banco, visíveis só no painel do Supabase.
+- Reservar, cancelar e responder passam por funções no banco.
+- A Secret key do Supabase fica só nas propriedades do Apps Script. Nunca no site nem no GitHub.
+- O script só manda email pra itens que existem no `config.js` do site, no máximo 30 por dia.
 
-1. **Supabase**: cria projeto grátis em supabase.com > SQL Editor > cola e roda `supabase/schema.sql`.
-2. Em Project Settings > API, copia a **Project URL** e a **anon public key** pro `config.js`.
-3. **GitHub**:
-   ```bash
-   git init && git add . && git commit -m "casa nova"
-   gh repo create casa-nova --public --source=. --push
-   ```
-4. No repo: Settings > Pages > Deploy from branch > `main` / root. Sai em `https://littlepequeno.github.io/casa-nova/`.
+## Atualizar o site
 
-## Rodar local
-
-```bash
-python -m http.server 8000
 ```
-
-## Observações
-
-- A anon key é pública por design. A segurança está no `schema.sql` (RLS sem policies + funções).
-- Projeto free do Supabase pausa após 7 dias sem uso. Com a lista circulando não pausa; se pausar, é só reativar no painel.
-- Não muda o `id` de um item depois que alguém reservou, senão a reserva some da tela.
+git add .
+git commit -m "atualiza"
+git push
+```
