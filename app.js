@@ -51,6 +51,7 @@ const $ = id => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
 function erro(msg) { $("erro").textContent = msg || ""; $("erro").hidden = !msg; }
+function aviso(msg) { $("aviso").textContent = msg || ""; $("aviso").hidden = !msg; if (msg) $("aviso").scrollIntoView({ block: "nearest", behavior: "smooth" }); }
 
 function render() {
   // filtros por cômodo
@@ -106,7 +107,7 @@ function card(i) {
     const lbl = el("label", "check");
     const chk = el("input"); chk.type = "checkbox"; chk.id = `comprei-${i.id}`;
     lbl.append(chk, document.createTextNode(" Já comprei"));
-    const nota = el("p", "nota", visitante.email ? "" : "O email é só pra nossa organização: se você não marcar \"Já comprei\", em alguns dias a gente manda um oi pra confirmar. Sem spam, prometido.");
+    const nota = el("p", "nota", visitante.email ? "" : "Usamos o email pra te mandar o endereço de entrega e confirmar a compra depois.");
     nota.hidden = !nota.textContent;
     const ok = el("button", "btn", "Reservar");
     const cancel = el("button", "btn ghost", "Voltar"); cancel.type = "button";
@@ -120,6 +121,7 @@ function card(i) {
         const deu = await api.reservar(i, r);
         if (!deu) throw new Error("Alguém reservou esse item agora há pouco.");
         meusTokens[i.id] = r.token; ls.set("meusTokens", meusTokens); aberto = null;
+        aviso(`Reservado! Em alguns minutos o endereço de entrega chega em ${r.email}.`);
       });
     };
     const btns = el("div", "actions"); btns.append(ok, cancel);
@@ -128,9 +130,10 @@ function card(i) {
   } else {
     const a = el("div", "actions");
     const b = el("button", "btn", "Eu dou esse"); b.type = "button";
-    b.onclick = () => { aberto = i.id; erro(); render(); };
+    b.onclick = () => { aberto = i.id; erro(); aviso(); render(); };
     a.append(b);
     if (i.url) { const l = el("a", "btn ghost", `Ver na ${i.loja || "loja"}`); l.href = i.url; l.target = "_blank"; l.rel = "noopener"; a.append(l); }
+    else { const l = el("a", "btn ghost", "Dar via Pix"); l.href = "#pix"; a.append(l); }
     body.append(a);
   }
 
@@ -158,7 +161,6 @@ $("casal").textContent = C.casal;
 $("foto").src = C.foto;
 $("legenda").textContent = C.legenda;
 $("pixkey").textContent = C.pix;
-$("endereco").textContent = C.endereco;
 $("copy").onclick = async e => {
   try { await navigator.clipboard.writeText(C.pix); e.target.textContent = "Copiada"; }
   catch { getSelection().selectAllChildren($("pixkey")); e.target.textContent = "Selecionada, copie"; }

@@ -9,7 +9,7 @@ index.html             página principal
 confirmar.html         página que abre pelo botão do email
 style.css              visual
 app.js                 lógica (lista, reserva, cancelamento)
-config.js              <- só edita isso: textos, itens (foto, frase), Pix, endereço
+config.js              <- só edita isso: textos, itens (foto, frase), Pix
 img/casal.jpg          foto de vocês
 supabase/schema.sql    banco (1ª vez)
 supabase/02_emails.sql banco: email, status e links de confirmação
@@ -19,6 +19,7 @@ apps-script/Codigo.gs  rotina diária de emails (roda na sua conta Google)
 ## Fluxo da reserva
 
 1. Convidado clica em "Eu dou esse", coloca nome e email (o navegador lembra pra próxima) e pode marcar "Já comprei".
+   Em até 10 minutos recebe o endereço de entrega por email. O endereço não aparece no site nem no GitHub.
 2. Reserva pendente há 5 dias: sai um email do seu Gmail perguntando se comprou, com botão pra cada item.
 3. O botão abre `confirmar.html`, onde a pessoa escolhe "Já comprei" ou "Desisti". Só o clique na página age, então antivírus de email não confirma nada sozinho.
 4. Sem resposta em 3 dias: vocês recebem um aviso com nome e email.

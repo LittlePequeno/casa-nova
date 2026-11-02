@@ -39,7 +39,7 @@ h1{font-family:var(--display);font-weight:400;font-size:clamp(2.3rem,6vw,3.8rem)
 .filters{display:flex;gap:6px;flex-wrap:wrap}
 .filters button{font:600 14px var(--body);border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:99px;padding:6px 14px;cursor:pointer}
 .filters button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px;align-items:start}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
 .thumb{aspect-ratio:4/3;max-width:100%;display:grid;place-items:center;background:#fff;color:var(--accent);font-family:var(--display);font-size:2.2rem}
 .thumb img{width:100%;height:100%;object-fit:contain;padding:12px}
@@ -62,6 +62,8 @@ h1{font-family:var(--display);font-weight:400;font-size:clamp(2.3rem,6vw,3.8rem)
 .check input{width:18px;height:18px;accent-color:var(--accent)}
 .nota{margin:0;font-size:.85rem;color:var(--muted);line-height:1.45}
 .dica{margin:0;color:var(--muted)}
+.ok{margin:0;background:var(--surface);border:1px solid var(--accent);color:var(--accent);border-radius:12px;padding:10px 14px;font-weight:700}
+html{scroll-behavior:smooth}
 .erro{color:var(--err);margin:0;font-weight:600}
 .muted{color:var(--muted)}
 

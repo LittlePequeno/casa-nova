@@ -12,7 +12,7 @@ window.CONFIG = {
   foto: "img/casal.jpg",
   legenda: "os novos moradores",
   pix: "pix-exemplo@email.com",
-  endereco: "Rua Exemplo, 000, apto 000 · Bairro · Rio de Janeiro, RJ · CEP 00000-000",
+  // O endereço não fica aqui: ele vai só por email, configurado no Apps Script (propriedade ENDERECO).
 
   // Frase da barra de progresso: a partir de qual % aparece
   piadas: [

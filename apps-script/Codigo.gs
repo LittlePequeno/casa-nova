@@ -7,6 +7,7 @@
  *   SUPABASE_SECRET  sua Secret key do Supabase (sb_secret_...). Nunca coloque no site.
  *   SITE_URL         https://littlepequeno.github.io/casa-nova
  *   EMAIL_CASAL      emails que recebem os avisos, separados por vírgula
+ *   ENDERECO         endereço de entrega completo (só existe aqui, não vai pro site)
  *
  * Depois rode a função instalar() uma vez.
  */
@@ -19,6 +20,12 @@ const MAX_EMAILS_POR_DIA = 30; // trava de segurança
 
 // ---------- entrada ----------
 
+/** A cada 10 minutos: manda o endereço pra quem acabou de reservar. */
+function rodarRapido() {
+  enviarEnderecos_();
+}
+
+/** Uma vez por dia: confirmações, avisos e liberações. */
 function rodar() {
   enviarConfirmacoes_();
   avisarCasal_();
@@ -28,7 +35,8 @@ function rodar() {
 function instalar() {
   ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger("rodar").timeBased().everyDays(1).atHour(10).inTimezone("America/Sao_Paulo").create();
-  Logger.log("Agendado: todo dia às 10h.");
+  ScriptApp.newTrigger("rodarRapido").timeBased().everyMinutes(10).create();
+  Logger.log("Agendado: endereços a cada 10 min, confirmações todo dia às 10h.");
 }
 
 /** Manda pra vocês um exemplo do email que os convidados recebem. */
@@ -40,6 +48,21 @@ function testarEmail() {
 }
 
 // ---------- etapas ----------
+
+function enviarEnderecos_() {
+  const validos = idsDoSite_();
+  const linhas = sb_("get", "reservas?select=item_id,item_nome,nome,email&endereco_enviado_em=is.null&email=not.is.null")
+    .filter(r => validos.has(r.item_id))
+    .slice(0, MAX_EMAILS_POR_DIA);
+  const porEmail = {};
+  linhas.forEach(r => (porEmail[r.email] = porEmail[r.email] || []).push(r));
+  Object.keys(porEmail).forEach(email => {
+    const itens = porEmail[email];
+    enviarEndereco_(email, itens);
+    marcar_(itens, { endereco_enviado_em: new Date().toISOString() });
+  });
+  if (linhas.length) Logger.log(`Endereços enviados: ${linhas.length} itens.`);
+}
 
 function enviarConfirmacoes_() {
   // Só itens que existem na lista do site: ninguém usa a função de reserva pra disparar email do seu Gmail pra terceiros.
@@ -76,7 +99,29 @@ function liberarExpiradas_() {
     `Esses itens voltaram pra lista por falta de resposta:\n\n${lista}`);
 }
 
-// ---------- email do convidado ----------
+// ---------- emails do convidado ----------
+
+function enviarEndereco_(email, itens) {
+  const p = cfg_();
+  const primeiroNome = String(itens[0].nome).split(" ")[0];
+  const nomes = itens.map(i => i.item_nome || i.item_id);
+  const listaTxt = nomes.length === 1 ? nomes[0] : `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
+
+  const texto =
+    `Oi, ${primeiroNome}!\n\n` +
+    `Valeu por reservar ${listaTxt}! Segue o endereço pra entrega:\n\n${p.endereco}\n\n` +
+    `É só usar esse endereço no checkout da loja.\n\n${ASSINATURA}`;
+
+  const html =
+    `<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.6;color:#2b2420;max-width:520px">` +
+    `<p>Oi, ${esc_(primeiroNome)}!</p>` +
+    `<p>Valeu por reservar <b>${esc_(listaTxt)}</b>! Segue o endereço pra entrega:</p>` +
+    `<p style="background:#f6efe4;border-left:4px solid #3f5e3a;padding:12px 16px;border-radius:8px">${esc_(p.endereco).replace(/\n/g, "<br>")}</p>` +
+    `<p>É só usar esse endereço no checkout da loja.</p>` +
+    `<p>${ASSINATURA}</p></div>`;
+
+  GmailApp.sendEmail(email, "Endereço pra entrega do presente", texto, { htmlBody: html, name: ASSINATURA });
+}
 
 function enviarPara_(email, itens) {
   const p = cfg_();
@@ -117,6 +162,7 @@ function cfg_() {
     key: props.getProperty("SUPABASE_SECRET"),
     site: (props.getProperty("SITE_URL") || "").replace(/\/$/, ""),
     casal: props.getProperty("EMAIL_CASAL"),
+    endereco: props.getProperty("ENDERECO"),
   };
   Object.keys(c).forEach(k => { if (!c[k]) throw new Error(`Falta a propriedade do script: ${k}`); });
   return c;
