@@ -121,7 +121,7 @@ function card(i) {
         const deu = await api.reservar(i, r);
         if (!deu) throw new Error("Alguém reservou esse item agora há pouco.");
         meusTokens[i.id] = r.token; ls.set("meusTokens", meusTokens); aberto = null;
-        aviso(`Reservado! Em alguns minutos o endereço de entrega chega em ${r.email}.`);
+        aviso(`Reservado! Em até 30 minutos o endereço de entrega chega em ${r.email}.`);
       });
     };
     const btns = el("div", "actions"); btns.append(ok, cancel);

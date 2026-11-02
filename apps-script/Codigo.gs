@@ -20,7 +20,7 @@ const MAX_EMAILS_POR_DIA = 30; // trava de segurança
 
 // ---------- entrada ----------
 
-/** A cada 10 minutos: manda o endereço pra quem acabou de reservar. */
+/** A cada 30 minutos: manda o endereço pra quem acabou de reservar. */
 function rodarRapido() {
   enviarEnderecos_();
 }
@@ -35,8 +35,8 @@ function rodar() {
 function instalar() {
   ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger("rodar").timeBased().everyDays(1).atHour(10).inTimezone("America/Sao_Paulo").create();
-  ScriptApp.newTrigger("rodarRapido").timeBased().everyMinutes(10).create();
-  Logger.log("Agendado: endereços a cada 10 min, confirmações todo dia às 10h.");
+  ScriptApp.newTrigger("rodarRapido").timeBased().everyMinutes(30).create();
+  Logger.log("Agendado: endereços a cada 30 min, confirmações todo dia às 10h.");
 }
 
 /** Manda pra vocês um exemplo do email que os convidados recebem. */
@@ -120,7 +120,7 @@ function enviarEndereco_(email, itens) {
     `<p>É só usar esse endereço no checkout da loja.</p>` +
     `<p>${ASSINATURA}</p></div>`;
 
-  GmailApp.sendEmail(email, "Endereço pra entrega do presente", texto, { htmlBody: html, name: ASSINATURA });
+  GmailApp.sendEmail(email, "Chá de casa nova Raphael & Deborah: endereço de entrega", texto, { htmlBody: html, name: ASSINATURA });
 }
 
 function enviarPara_(email, itens) {
@@ -150,7 +150,7 @@ function enviarPara_(email, itens) {
     `<p style="color:#6f6158;font-size:14px">Se não der notícia em alguns dias, o item volta pra lista.</p>` +
     `<p>${ASSINATURA}</p></div>`;
 
-  GmailApp.sendEmail(email, "Sobre o presente da nossa casa nova", texto, { htmlBody: html, name: ASSINATURA });
+  GmailApp.sendEmail(email, "Chá de casa nova Raphael & Deborah: confirmação do presente", texto, { htmlBody: html, name: ASSINATURA });
 }
 
 // ---------- utilitários ----------
