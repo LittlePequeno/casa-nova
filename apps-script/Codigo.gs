@@ -8,6 +8,7 @@
  *   SITE_URL         https://littlepequeno.github.io/casa-nova
  *   EMAIL_CASAL      emails que recebem os avisos, separados por vírgula
  *   ENDERECO         endereço de entrega completo (só existe aqui, não vai pro site)
+ *   PIX              chave Pix (vai no email de confirmação das cotas)
  *
  * Depois rode a função instalar() uma vez.
  */
@@ -20,7 +21,7 @@ const MAX_EMAILS_POR_DIA = 30; // trava de segurança
 
 // ---------- entrada ----------
 
-/** A cada 30 minutos: manda o endereço pra quem acabou de reservar. */
+/** A cada 5 minutos: manda o endereço pra quem acabou de reservar. */
 function rodarRapido() {
   enviarEnderecos_();
 }
@@ -35,14 +36,14 @@ function rodar() {
 function instalar() {
   ScriptApp.getProjectTriggers().forEach(t => ScriptApp.deleteTrigger(t));
   ScriptApp.newTrigger("rodar").timeBased().everyDays(1).atHour(10).inTimezone("America/Sao_Paulo").create();
-  ScriptApp.newTrigger("rodarRapido").timeBased().everyMinutes(30).create();
-  Logger.log("Agendado: endereços a cada 30 min, confirmações todo dia às 10h.");
+  ScriptApp.newTrigger("rodarRapido").timeBased().everyMinutes(5).create();
+  Logger.log("Agendado: endereços a cada 5 min, confirmações todo dia às 10h.");
 }
 
 /** Manda pra vocês um exemplo do email que os convidados recebem. */
 function testarEmail() {
   const p = cfg_();
-  const exemplo = [{ nome: "Fulano", item_nome: "Air fryer", link_token: "exemplo" }];
+  const exemplo = [{ nome: "Fulano", item_nome: "Air fryer", link_token: "exemplo", _f: FONTES[0] }];
   enviarPara_(p.casal.split(",")[0].trim(), exemplo);
   Logger.log("Email de teste enviado.");
 }
@@ -59,15 +60,34 @@ function enviarEnderecos_() {
   Object.keys(porEmail).forEach(email => {
     const itens = porEmail[email];
     enviarEndereco_(email, itens);
-    marcar_(itens, { endereco_enviado_em: new Date().toISOString() });
+    marcar_(FONTES[0], itens, { endereco_enviado_em: new Date().toISOString() });
   });
   if (linhas.length) Logger.log(`Endereços enviados: ${linhas.length} itens.`);
+}
+
+// Reservas de item e cotas passam pelo mesmo fluxo de confirmação.
+const FONTES = [
+  { tabela: "reservas", chave: "item_id", tipo: "item", campos: "item_id,item_nome,nome,email,link_token" },
+  { tabela: "cotas",    chave: "id",      tipo: "cota", campos: "id,item_id,item_nome,qtd,nome,email,link_token" },
+];
+
+function buscar_(filtro) {
+  return FONTES.flatMap(f => sb_("get", `${f.tabela}?select=${f.campos}&${filtro}`).map(r => Object.assign(r, { _f: f })));
+}
+
+function marcarTodos_(linhas, campos) {
+  FONTES.forEach(f => { const l = linhas.filter(r => r._f === f); if (l.length) marcar_(f, l, campos); });
+}
+
+function rotulo_(r) {
+  const nome = r.item_nome || r.item_id;
+  return r._f.tipo === "cota" ? `${nome} (${r.qtd} ${r.qtd > 1 ? "cotas" : "cota"})` : nome;
 }
 
 function enviarConfirmacoes_() {
   // Só itens que existem na lista do site: ninguém usa a função de reserva pra disparar email do seu Gmail pra terceiros.
   const validos = idsDoSite_();
-  const linhas = sb_("get", `reservas?select=item_id,item_nome,nome,email,link_token&status=eq.pendente&email_enviado_em=is.null&email=not.is.null&criado_em=lt.${diasAtras_(DIAS_ATE_EMAIL)}`)
+  const linhas = buscar_(`status=eq.pendente&email_enviado_em=is.null&email=not.is.null&criado_em=lt.${diasAtras_(DIAS_ATE_EMAIL)}`)
     .filter(r => validos.has(r.item_id))
     .slice(0, MAX_EMAILS_POR_DIA);
   const porEmail = {};
@@ -75,28 +95,31 @@ function enviarConfirmacoes_() {
   Object.keys(porEmail).forEach(email => {
     const itens = porEmail[email];
     enviarPara_(email, itens);
-    marcar_(itens, { email_enviado_em: new Date().toISOString() });
+    marcarTodos_(itens, { email_enviado_em: new Date().toISOString() });
   });
   if (linhas.length) Logger.log(`Confirmações enviadas: ${linhas.length} itens.`);
 }
 
 function avisarCasal_() {
-  const linhas = sb_("get", `reservas?select=item_id,item_nome,nome,email&status=eq.pendente&aviso_enviado_em=is.null&email_enviado_em=lt.${diasAtras_(DIAS_ATE_AVISO)}`);
+  const linhas = buscar_(`status=eq.pendente&aviso_enviado_em=is.null&email_enviado_em=lt.${diasAtras_(DIAS_ATE_AVISO)}`);
   if (!linhas.length) return;
-  const lista = linhas.map(r => `- ${r.item_nome || r.item_id}: ${r.nome} (${r.email})`).join("\n");
+  const lista = linhas.map(r => `- ${rotulo_(r)}: ${r.nome} (${r.email})`).join("\n");
   GmailApp.sendEmail(cfg_().casal, `Casa Nova: ${linhas.length} reserva(s) sem resposta`,
     `Essas reservas não responderam o email de confirmação:\n\n${lista}\n\n` +
-    `Se ninguém responder até amanhã, os itens voltam pra lista. Vale mandar um zap antes.`);
-  marcar_(linhas, { aviso_enviado_em: new Date().toISOString() });
+    `Se ninguém responder até amanhã, voltam pra lista. Vale mandar um zap antes.`);
+  marcarTodos_(linhas, { aviso_enviado_em: new Date().toISOString() });
 }
 
 function liberarExpiradas_() {
-  const linhas = sb_("get", `reservas?select=item_id,item_nome,nome,email&status=eq.pendente&aviso_enviado_em=lt.${diasAtras_(DIAS_ATE_LIBERAR)}`);
+  const linhas = buscar_(`status=eq.pendente&aviso_enviado_em=lt.${diasAtras_(DIAS_ATE_LIBERAR)}`);
   if (!linhas.length) return;
-  sb_("delete", `reservas?item_id=${emLista_(linhas)}&status=eq.pendente`);
-  const lista = linhas.map(r => `- ${r.item_nome || r.item_id} (era de ${r.nome})`).join("\n");
-  GmailApp.sendEmail(cfg_().casal, `Casa Nova: ${linhas.length} item(ns) liberado(s)`,
-    `Esses itens voltaram pra lista por falta de resposta:\n\n${lista}`);
+  FONTES.forEach(f => {
+    const l = linhas.filter(r => r._f === f);
+    if (l.length) sb_("delete", `${f.tabela}?${f.chave}=${emLista_(l, f.chave)}&status=eq.pendente`);
+  });
+  const lista = linhas.map(r => `- ${rotulo_(r)} (era de ${r.nome})`).join("\n");
+  GmailApp.sendEmail(cfg_().casal, `Casa Nova: ${linhas.length} reserva(s) liberada(s)`,
+    `Essas reservas voltaram pra lista por falta de resposta:\n\n${lista}`);
 }
 
 // ---------- emails do convidado ----------
@@ -126,28 +149,34 @@ function enviarEndereco_(email, itens) {
 function enviarPara_(email, itens) {
   const p = cfg_();
   const primeiroNome = String(itens[0].nome).split(" ")[0];
-  const nomes = itens.map(i => i.item_nome || i.item_id);
+  const nomes = itens.map(rotulo_);
   const listaTxt = nomes.length === 1 ? nomes[0] : `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
   const link = i => `${p.site}/confirmar.html?t=${encodeURIComponent(i.link_token)}`;
+  const temCota = itens.some(i => i._f.tipo === "cota"), temItem = itens.some(i => i._f.tipo === "item");
+  const pergunta = temCota && !temItem ? "você já conseguiu fazer o Pix?"
+    : temCota ? "você realmente efetuou a compra (e o Pix, no caso das cotas)?"
+    : "você realmente efetuou a compra?";
+  const verbo = temCota && !temItem ? "ajudou com" : "reservou";
 
   const texto =
     `Oi, ${primeiroNome}!\n\n` +
-    `Eu e Deborah adoramos que você reservou ${listaTxt}! Vai nos ajudar à beça!\n\n` +
-    `Só pra gente se organizar: você realmente efetuou a compra? Dessa forma mantemos tudo atualizado e marcado certinho lá no site!\n\n` +
-    itens.map(i => `${i.item_nome || i.item_id}: ${link(i)}`).join("\n") +
-    `\n\nSe não der notícia em alguns dias, o item volta pra lista.\n\n${ASSINATURA}`;
+    `Eu e Deborah adoramos que você ${verbo} ${listaTxt}! Vai nos ajudar à beça!\n\n` +
+    `Só pra gente se organizar: ${pergunta} Dessa forma mantemos tudo atualizado e marcado certinho lá no site!\n\n` +
+    itens.map(i => `${rotulo_(i)}: ${link(i)}`).join("\n") +
+    `\n\n${temCota ? `Chave Pix: ${p.pix}\n\n` : ""}Se não der notícia em alguns dias, a reserva volta pra lista.\n\n${ASSINATURA}`;
 
   const botoes = itens.map(i =>
-    `<p style="margin:0 0 10px"><a href="${link(i)}" style="display:inline-block;background:#3f5e3a;color:#fffaf2;text-decoration:none;font-weight:700;padding:10px 18px;border-radius:99px">Responder sobre ${esc_(i.item_nome || i.item_id)}</a></p>`
+    `<p style="margin:0 0 10px"><a href="${link(i)}" style="display:inline-block;background:#3f5e3a;color:#fffaf2;text-decoration:none;font-weight:700;padding:10px 18px;border-radius:99px">Responder sobre ${esc_(rotulo_(i))}</a></p>`
   ).join("");
 
   const html =
     `<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.6;color:#2b2420;max-width:520px">` +
     `<p>Oi, ${esc_(primeiroNome)}!</p>` +
-    `<p>Eu e Deborah adoramos que você reservou <b>${esc_(listaTxt)}</b>! Vai nos ajudar à beça!</p>` +
-    `<p>Só pra gente se organizar: você realmente efetuou a compra? Dessa forma mantemos tudo atualizado e marcado certinho lá no site!</p>` +
+    `<p>Eu e Deborah adoramos que você ${verbo} <b>${esc_(listaTxt)}</b>! Vai nos ajudar à beça!</p>` +
+    `<p>Só pra gente se organizar: ${pergunta} Dessa forma mantemos tudo atualizado e marcado certinho lá no site!</p>` +
     botoes +
-    `<p style="color:#6f6158;font-size:14px">Se não der notícia em alguns dias, o item volta pra lista.</p>` +
+    (temCota ? `<p>Chave Pix: <b>${esc_(p.pix)}</b></p>` : "") +
+    `<p style="color:#6f6158;font-size:14px">Se não der notícia em alguns dias, a reserva volta pra lista.</p>` +
     `<p>${ASSINATURA}</p></div>`;
 
   GmailApp.sendEmail(email, "Chá de casa nova Raphael & Deborah: confirmação do presente", texto, { htmlBody: html, name: ASSINATURA });
@@ -163,8 +192,9 @@ function cfg_() {
     site: (props.getProperty("SITE_URL") || "").replace(/\/$/, ""),
     casal: props.getProperty("EMAIL_CASAL"),
     endereco: props.getProperty("ENDERECO"),
+    pix: props.getProperty("PIX") || "",
   };
-  Object.keys(c).forEach(k => { if (!c[k]) throw new Error(`Falta a propriedade do script: ${k}`); });
+  Object.keys(c).forEach(k => { if (!c[k] && k !== "pix") throw new Error(`Falta a propriedade do script: ${k}`); });
   return c;
 }
 
@@ -190,12 +220,12 @@ function idsDoSite_() {
   return ids;
 }
 
-function marcar_(linhas, campos) {
-  sb_("patch", `reservas?item_id=${emLista_(linhas)}`, campos);
+function marcar_(fonte, linhas, campos) {
+  sb_("patch", `${fonte.tabela}?${fonte.chave}=${emLista_(linhas, fonte.chave)}`, campos);
 }
 
-function emLista_(linhas) {
-  return encodeURIComponent(`in.(${linhas.map(r => `"${r.item_id}"`).join(",")})`);
+function emLista_(linhas, chave = "item_id") {
+  return encodeURIComponent(`in.(${linhas.map(r => `"${r[chave]}"`).join(",")})`);
 }
 
 function diasAtras_(n) {

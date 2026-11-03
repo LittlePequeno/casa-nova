@@ -76,7 +76,7 @@ async function responder(acao, btns) {
   btns.forEach(b => (b.disabled = true));
   try {
     const r = await rpc("responder_link", { p_link: link, p_acao: acao });
-    if (r === "confirmado") final("Valeu demais!", "Tá confirmado e marcado certinho no site. Toda vez que a gente usar, vai lembrar de você.");
+    if (r === "confirmado") final("Valeu demais!", "Tá confirmado e marcado certinho no site. Muito obrigado pelo carinho!");
     else if (r === "liberado") final("Tudo certo!", "Liberamos o presente pra outra pessoa. Obrigado por avisar!");
     else final("Ué, sumiu", "Essa reserva não existe mais. Talvez já tenha sido liberada.");
   } catch { btns.forEach(b => (b.disabled = false)); final("Deu ruim aqui", "Não conseguimos registrar. Tenta de novo daqui a pouco."); }
